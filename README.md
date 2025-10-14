@@ -74,30 +74,20 @@ Check out the live application at: [**weberjulian.github.io/LLM-prompt-editor**]
 
 ## 📋 API Format
 
-The app exports conversations in OpenAI-compatible JSON format:
+The app exports conversations as a clean JSON array of messages (OpenAI-compatible):
 
 ```json
-{
-  "messages": [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "What's the weather?"},
-    {"role": "assistant", "content": null, "tool_calls": [
-      {"id": "call_123", "type": "function", "function": {"name": "get_weather", "arguments": "{\"location\": \"Paris\"}"}}
-    ]},
-    {"role": "tool", "tool_call_id": "call_123", "content": "{...}"}
-  ],
-  "tools": [
-    {
-      "type": "function",
-      "function": {
-        "name": "get_weather",
-        "description": "Get weather by location",
-        "parameters": {"type": "object", "properties": {"location": {"type": "string"}}}
-      }
-    }
-  ]
-}
+[
+  {"role": "system", "content": "You are a helpful assistant."},
+  {"role": "user", "content": "What's the weather?"},
+  {"role": "assistant", "tool_calls": [
+    {"id": "call_123", "type": "function", "function": {"name": "get_weather", "arguments": "{\"location\": \"Paris\"}"}}
+  ]},
+  {"role": "tool", "tool_call_id": "call_123", "content": "{...}"}
+]
 ```
+
+> **Note**: Import supports both the new direct array format and legacy wrapped format with `{messages: [...], tools: [...]}`
 
 ## 🚀 Deployment
 

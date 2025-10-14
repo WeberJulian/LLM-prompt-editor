@@ -572,15 +572,31 @@ export default function App() {
     const text = await file.text();
     try {
       const parsed = JSON.parse(text);
+      let importedMessages: any[] = [];
       if (Array.isArray(parsed)) {
         // New format: direct array of messages
-        setMessages(withIds(parsed));
-        setTools(JSON.stringify(DEFAULT_TOOLS, null, 2));
+        importedMessages = parsed;
       } else {
         // Old format with wrapper object
-        setMessages(withIds(Array.isArray(parsed.messages) ? parsed.messages : [DEFAULT_SYSTEM]));
-        setTools(JSON.stringify(parsed.tools || [], null, 2));
+        importedMessages = Array.isArray(parsed.messages) ? parsed.messages : [DEFAULT_SYSTEM];
       }
+
+      // Sanitize filename for conversation name
+      const sanitizedName = file.name.replace(/\.json$/i, "").replace(/[^a-zA-Z0-9\s\-_]/g, "").trim() || "Imported Conversation";
+
+      // Create new conversation
+      const newConv = {
+        id: uuidv4(),
+        name: sanitizedName,
+        updatedAt: nowIso(),
+        tools: DEFAULT_TOOLS,
+        messages: withIds(importedMessages)
+      };
+
+      const next = [newConv, ...conversations];
+      setConversations(next);
+      localStorage.setItem(LS_KEY_LIST, JSON.stringify(next));
+      setActiveId(newConv.id);
     } catch {
       alert("Invalid JSON file");
     }
