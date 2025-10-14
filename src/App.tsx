@@ -99,12 +99,12 @@ const makeExampleConversation = () => {
   };
 };
 
-// Build export payload (also used by tests)
-const buildExportPayload = (messages: any[], toolsStr: string) => {
+// Build exported messages (also used by tests)
+const buildExportedMessages = (messages: any[]) => {
   const cleaned = messages.map(({ _id, ...m }) => {
     const base: any = { role: m.role };
     if (m.content !== undefined) base.content = m.content;
-    if (m.role === "assistant" && Array.isArray(m.tool_calls)) {
+    if (m.role === "assistant" && Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
       base.tool_calls = m.tool_calls.map((tc: any) => ({
         id: tc.id || uuidv4(),
         type: tc.type || "function",
@@ -123,7 +123,7 @@ const buildExportPayload = (messages: any[], toolsStr: string) => {
     }
     return base;
   });
-  return { messages: cleaned, tools: isJSONString(toolsStr) ? JSON.parse(toolsStr) : [] };
+  return cleaned;
 };
 
 // Auto-resize textarea hook
@@ -509,17 +509,14 @@ export default function App() {
         { role: "assistant", content: null, tool_calls: [{ id: toolId, type: "function", function: { name: "f", arguments: { a: 1 } } }] },
         { role: "tool", tool_call_id: toolId, name: "f", content: "{\"ok\":true}" },
       ];
-      const out = buildExportPayload(testMsgs, JSON.stringify(DEFAULT_TOOLS));
-      console.assert(Array.isArray(out.messages), "export: messages array");
-      const aMsg = out.messages.find((m: any) => m.role === "assistant");
+      const out = buildExportedMessages(testMsgs);
+      console.assert(Array.isArray(out), "export: messages array");
+      const aMsg = out.find((m: any) => m.role === "assistant");
       console.assert(aMsg.tool_calls[0].function.arguments === "{\"a\":1}", "export: function.arguments is stringified");
-      const tMsg = out.messages.find((m: any) => m.role === "tool");
+      const tMsg = out.find((m: any) => m.role === "tool");
       console.assert(!!tMsg.tool_call_id, "export: tool_call_id present");
-      // extra: tools fallback
-      const out2 = buildExportPayload(testMsgs, "not-json");
-      console.assert(Array.isArray(out2.tools), "export: tools fallback to [] on bad json");
       // messages length preserved
-      console.assert(out.messages.length === testMsgs.length, "export: preserves message count");
+      console.assert(out.length === testMsgs.length, "export: preserves message count");
       console.groupEnd();
     };
     tests();
@@ -566,17 +563,24 @@ export default function App() {
   };
 
   const exportJSON = () => {
-    const payload = buildExportPayload(messages as any[], tools);
+    const msgs = buildExportedMessages(messages);
     const fname = `${name || "conversation"}.json`;
-    download(fname, JSON.stringify(payload, null, 2));
+    download(fname, JSON.stringify(msgs, null, 2));
   };
 
   const importJSON = async (file: File) => {
     const text = await file.text();
     try {
       const parsed = JSON.parse(text);
-      setMessages(withIds(Array.isArray(parsed.messages) ? parsed.messages : [DEFAULT_SYSTEM]));
-      setTools(JSON.stringify(parsed.tools || [], null, 2));
+      if (Array.isArray(parsed)) {
+        // New format: direct array of messages
+        setMessages(withIds(parsed));
+        setTools(JSON.stringify(DEFAULT_TOOLS, null, 2));
+      } else {
+        // Old format with wrapper object
+        setMessages(withIds(Array.isArray(parsed.messages) ? parsed.messages : [DEFAULT_SYSTEM]));
+        setTools(JSON.stringify(parsed.tools || [], null, 2));
+      }
     } catch {
       alert("Invalid JSON file");
     }
